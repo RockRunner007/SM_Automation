@@ -1,0 +1,39 @@
+pipeline {
+    agent { label "orca-aws-m" }
+    parameters {
+        string(name: 'BITBUCKET', defaultValue: '{URL}', description: 'Define the Bitbucket instance you want to use for scanning', trim: true)
+        string(name: 'PROJECTKEY', defaultValue: '{ProjectKey}', description: 'Define the project key for the Bitbucket project you want to scan', trim: true)
+        booleanParam(name: 'AllRepositoriesInProject', description: 'Ability to scan all repositories for a Bitbucket project, will ignore repository parameter', defaultValue: false)
+        string(name: 'REPOSITORY', defaultValue: '{project}', description: 'Define if you want to scan one Bitbucket project', trim: true)
+        string(name: 'RECIPIENTS', defaultValue: '{email}', description: 'Define who you want want to send the report to', trim: true)        
+    }
+    triggers{ cron('H 22 * * 5') }
+    stages {
+        stage("Generate Alerts") {
+            steps {
+                cleanWs()
+                checkout scm
+                sh '/usr/local/bin/pip3 install pipenv'
+                sh "/usr/local/bin/pipenv --python /usr/local/bin/python3 install"
+
+                withCredentials([usernamePassword(credentialsId: 'Bitbucket-Service-Account', passwordVariable: 'SECURITY_PWD', usernameVariable: 'SECURITY_USR')]) {
+                    sh "/usr/local/bin/pipenv run python3 scripts/security.py"
+                }
+            }
+        }
+    }
+    post {
+        success {
+            emailext mimeType: 'text/html', attachmentsPattern: 'results.csv',
+            body: "Attached is ${REPOSITORY}'s secrets management scan results", 
+            replyTo: '{Email}', 
+            subject: "${PROJECTKEY} Secret Management Report", 
+            to: "${RECIPIENTS}"
+        }
+        failure {
+            mail to: '{Email}', 
+            subject: "Build Failure: ${JOB_BASE_NAME}", 
+            body: "Failed to generate secrets management report.  ${BUILD_URL}"
+        }
+    }
+}

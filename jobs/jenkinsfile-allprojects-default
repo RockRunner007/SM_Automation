@@ -1,0 +1,35 @@
+pipeline {
+    agent { label "orca-aws-m" }
+    parameters {
+        string(name: 'BITBUCKET', defaultValue: '{URL}', description: 'Define the Bitbucket instance you want to use for scanning', trim: true)
+        string(name: 'RECIPIENTS', defaultValue: '{Email}', description: 'Define who you want want to send the report to', trim: true)        
+    }
+    stages {
+        stage("Generate Alerts") {
+            steps {
+                cleanWs()
+                checkout scm
+                sh '/usr/local/bin/pip3 install pipenv'
+                sh "/usr/local/bin/pipenv --python /usr/local/bin/python3 install"
+
+                withCredentials([usernamePassword(credentialsId: 'Bitbucket-Service-Account', passwordVariable: 'SECURITY_PWD', usernameVariable: 'SECURITY_USR')]) {
+                    sh "/usr/local/bin/pipenv run python3 scripts/all_project_security.py"
+                }
+            }
+        }
+    }
+    post {
+        success {
+            emailext mimeType: 'text/html', attachmentsPattern: 'results.csv',
+            body: "Attached is ${BITBUCKET}'s secrets management scan results", 
+            replyTo: '{Email}', 
+            subject: "${BITBUCKET} All Projects Secret Management Report", 
+            to: "${RECIPIENTS}"
+        }
+        failure {
+            mail to: '{Email}', 
+            subject: "Build Failure: ${JOB_BASE_NAME}", 
+            body: "Failed to generate secrets management report.  ${BUILD_URL}"
+        }
+    }
+}
