@@ -55,7 +55,7 @@ def get_project(creds, domain, project):
         "Authorization": "Basic %s" % creds,
         "Content-Type": "application/json",
     }
-    response = requests.request("GET", f"{domain}/rest/api/1.0/projects/{project}", headers=headers, verify=False)
+    response = requests.request("GET", f"{domain}/rest/api/1.0/projects/{project}", headers=headers, verify=True)
 
     if response.status_code == 200:
         logging.info(f"Successfully found the project {project}.")
@@ -71,7 +71,7 @@ def get_slugs(creds, domain, project):
         "Content-Type": "application/json",
     }
 
-    response = requests.request("GET", f"{domain}/rest/api/1.0/projects/{project}/repos", headers=headers, verify=False)
+    response = requests.request("GET", f"{domain}/rest/api/1.0/projects/{project}/repos", headers=headers, verify=True)
 
     if response.status_code == 401:
         logging.error(f"Failed to get slugs for project {project}. Jenkins user needs to be an admin of the project or repo")
@@ -90,7 +90,7 @@ def get_report_status(creds, domain, project, slug):
     }
 
     url = f"{domain}/rest/security/1.0/scan/{project}/repos/{slug}"
-    response = requests.request("GET", url, headers=headers, verify=False)
+    response = requests.request("GET", url, headers=headers, verify=True)
     if response.status_code == 200:
         scanned = response.json()['scanned']
         logging.info(f"Project {project} has been scanned status equals {scanned}")
@@ -104,7 +104,7 @@ def get_report_status(creds, domain, project, slug):
         exit(1)
 
     if scanned == False:
-        response = requests.request("POST", url, headers=headers, verify=False)
+        response = requests.request("POST", url, headers=headers, verify=True)
         if response.status_code == 200:
             if response.json()['progress'] == 100:
                 logging.info(f"Project {project} has been scanned status equals {response.json()['progress']}")
@@ -129,7 +129,7 @@ def get_scanresults(creds, domain, project, slug):
         # 'ruleType' : '',
         # 'includeWhitelisted' : ''
     }
-    response = requests.request("GET", f"{domain}/rest/security/1.0/export-report/{project}/repos/{slug}", headers=headers, data=payload, verify=False)
+    response = requests.request("GET", f"{domain}/rest/security/1.0/export-report/{project}/repos/{slug}", headers=headers, data=payload, verify=True)
 
     if response.status_code == 401:
         logging.error("Failed to get scan results. Jenkins user needs to be an admin of the project or repo")
